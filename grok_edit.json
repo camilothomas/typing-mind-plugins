@@ -1,0 +1,66 @@
+{
+  "id": "grok-imagine-edit",
+  "org": null,
+  "uuid": "2362abf5-b977-480b-a900-cfa7c609a955",
+  "emoji": "✏️",
+  "title": "Grok Imagine Edit",
+  "system": false,
+  "iconURL": null,
+  "syncedAt": "2026-07-19T00:00:00.000Z",
+  "createdAt": "2026-07-19T00:00:00.000Z",
+  "deletedAt": null,
+  "githubURL": null,
+  "sourceUUID": null,
+  "description": "Edit images using xAI Grok Imagine via OpenRouter. Attach 1–3 reference images.",
+  "oauthConfig": null,
+  "permissions": ["read_user_message"],
+  "userSettings": [
+    {
+      "name": "openrouterApiKey",
+      "type": "password",
+      "label": "OpenRouter API Key",
+      "required": true,
+      "description": "Your OpenRouter API key. Get one at openrouter.ai/keys.",
+      "placeholder": "sk-or-v1-..."
+    }
+  ],
+  "pluginFunctions": [
+    {
+      "id": "LEGACY_DEFAULT_FUNCTION",
+      "code": "async function edit_image_grok(params,userSettings,authorizedResources){const{prompt}=params;const apiKey=userSettings.openrouterApiKey;if(!apiKey)throw new Error('OpenRouter API key required.');if(!prompt)throw new Error('Prompt required.');let images=(authorizedResources?.userMessage?.attachments||[]).filter(a=>a.type?.startsWith('image/')).map(a=>({url:a.url,name:a.name}));if(!images.length){const prev=authorizedResources?.previousRunOutput?.cards;if(Array.isArray(prev))images=prev.filter(c=>c.type==='image').map(c=>({url:c.image.url,name:'output.png'}));}if(!images.length)throw new Error('No images found. Attach 1–3 images to edit.');const blobs=await Promise.all(images.slice(0,3).map(async({url,name})=>({blob:await fetch(url).then(r=>r.blob()),name})));const fd=new FormData();fd.append('model','x-ai/grok-imagine-image-quality');fd.append('prompt',prompt);fd.append('resolution',params.resolution||'2K');fd.append('aspect_ratio',params.aspect_ratio||'1:1');for(const{blob,name}of blobs)fd.append('image[]',blob,name);const response=await fetch('https://openrouter.ai/api/v1/images',{method:'POST',headers:{'Authorization':`Bearer ${apiKey}`,'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'},body:fd});if(response.status===401)throw new Error('Invalid OpenRouter API key.');if(!response.ok){const text=await response.text();let msg=`Request failed (${response.status})`;try{const e=JSON.parse(text);if(e.error)msg+=`: ${e.error.message||e.error}`;}catch(_){msg+=`: ${text}`;}throw new Error(msg);}const{data}=await response.json();if(!data?.length)throw new Error('No images returned.');return{cards:data.map(img=>({type:'image',image:{url:img.url||`data:${img.media_type||'image/jpeg'};base64,${img.b64_json}`,alt:prompt.replace(/[\\[\\]]/g,''),sync:true}}))}}",
+      "name": "edit_image_grok",
+      "openaiSpec": {
+        "name": "edit_image_grok",
+        "parameters": {
+          "type": "object",
+          "required": ["prompt"],
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "description": "Editing instruction describing how to modify the attached image(s)."
+            },
+            "resolution": {
+              "type": "string",
+              "default": "2K",
+              "enum": ["1K", "2K"],
+              "description": "Output resolution. 1K costs $0.05/image, 2K costs $0.07/image."
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "default": "1:1",
+              "enum": ["1:1", "3:4", "4:3", "9:16", "16:9", "2:3", "3:2", "9:19.5", "19.5:9", "9:20", "20:9", "1:2", "2:1", "auto"],
+              "description": "Aspect ratio of the output image."
+            }
+          }
+        },
+        "description": "Edit attached images using xAI Grok Imagine via OpenRouter. Requires 1–3 images attached to the message or from a previous image generation. Supports 1K ($0.05) or 2K ($0.07) resolution and a wide range of aspect ratios."
+      },
+      "outputType": "cards",
+      "implementationType": "javascript"
+    }
+  ],
+  "overviewMarkdown": "# Grok Imagine Edit\n\nEdit images using xAI Grok Imagine on OpenRouter. Attach 1–3 reference images to your message, then describe the edit.\n\n## Parameters\n- **resolution**: `1K` ($0.05) · `2K` ($0.07)\n- **aspect_ratio**: `1:1` · `16:9` · `9:16` · `4:3` · `3:2` · and more\n\n## Setup\n1. Get an API key at [openrouter.ai/keys](https://openrouter.ai/keys)\n2. Enter it in plugin settings",
+  "authenticationType": "AUTH_TYPE_NONE",
+  "dynamicContextEndpoints": [],
+  "sharedOAuthConnectionID": null
+}
