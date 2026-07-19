@@ -1,0 +1,88 @@
+{
+  "id": "seedream-4.5",
+  "org": null,
+  "uuid": "cb483c97-49e5-49b2-ba8d-c659c3594da8",
+  "emoji": "🌱",
+  "title": "Seedream 4.5",
+  "system": false,
+  "iconURL": null,
+  "syncedAt": "2026-07-19T03:21:30.000Z",
+  "createdAt": "2026-07-19T00:00:00.000Z",
+  "deletedAt": null,
+  "githubURL": null,
+  "sourceUUID": null,
+  "description": "Generate images using ByteDance Seedream 4.5 via OpenRouter.",
+  "oauthConfig": null,
+  "permissions": [],
+  "userSettings": [
+    {
+      "name": "openrouterApiKey",
+      "type": "password",
+      "label": "OpenRouter API Key",
+      "required": true,
+      "description": "Your OpenRouter API key. Get one at openrouter.ai/keys.",
+      "placeholder": "sk-or-v1-..."
+    },
+    {
+      "name": "defaultImageCount",
+      "type": "number",
+      "label": "Default Image Count",
+      "required": false,
+      "description": "Images per request (1–10). Can be overridden per prompt."
+    },
+    {
+      "name": "model",
+      "type": "text",
+      "label": "Model Override",
+      "required": false,
+      "description": "Defaults to bytedance-seed/seedream-4.5.",
+      "placeholder": "bytedance-seed/seedream-4.5"
+    }
+  ],
+  "pluginFunctions": [
+    {
+      "id": "LEGACY_DEFAULT_FUNCTION",
+      "code": "async function generate_image_seedream(params,userSettings){const{prompt}=params;const apiKey=userSettings.openrouterApiKey;if(!apiKey)throw new Error('OpenRouter API key required.');if(!prompt)throw new Error('Prompt required.');const response=await fetch('https://openrouter.ai/api/v1/images',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`,'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'},body:JSON.stringify({model:userSettings.model||'bytedance-seed/seedream-4.5',prompt,n:params.n||parseInt(userSettings.defaultImageCount)||1,resolution:params.resolution||'2K',aspect_ratio:params.aspect_ratio||'1:1'})});if(response.status===401)throw new Error('Invalid OpenRouter API key.');if(!response.ok){const text=await response.text();let msg=`Request failed (${response.status})`;try{const e=JSON.parse(text);if(e.error)msg+=`: ${e.error.message||e.error}`;}catch(_){msg+=`: ${text}`;}throw new Error(msg);}const{data}=await response.json();if(!data?.length)throw new Error('No images returned.');return{cards:data.map(img=>({type:'image',image:{url:`data:${img.media_type||'image/jpeg'};base64,${img.b64_json}`,alt:prompt.replace(/[\\[\\]]/g,''),sync:true}}))}}",
+      "name": "generate_image_seedream",
+      "openaiSpec": {
+        "name": "generate_image_seedream",
+        "parameters": {
+          "type": "object",
+          "required": ["prompt"],
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "description": "Text description of the image to generate."
+            },
+            "n": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 10,
+              "description": "Number of images to generate (1–10)."
+            },
+            "resolution": {
+              "type": "string",
+              "default": "2K",
+              "enum": ["1K", "2K", "4K"],
+              "description": "Output resolution."
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "default": "1:1",
+              "enum": ["1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "9:19.5", "19.5:9", "9:20", "20:9", "9:21", "21:9", "auto"],
+              "description": "Aspect ratio of the output image."
+            }
+          }
+        },
+        "description": "Generate images using ByteDance Seedream 4.5 via OpenRouter. Supports 1–10 images per request, resolutions 1K/2K/4K, and aspect ratios including 1:1, 16:9, 9:16, 4:3, 3:2, and more."
+      },
+      "outputType": "cards",
+      "implementationType": "javascript"
+    }
+  ],
+  "overviewMarkdown": "# Seedream 4.5\n\nImage generation via ByteDance Seedream 4.5 on OpenRouter.\n\n## Parameters\n- **n**: 1–10 images per request\n- **resolution**: `1K` · `2K` · `4K`\n- **aspect_ratio**: `1:1` · `16:9` · `9:16` · `4:3` · `3:2` · and more\n\n## Setup\n1. Get an API key at [openrouter.ai/keys](https://openrouter.ai/keys)\n2. Enter it in plugin settings",
+  "authenticationType": "AUTH_TYPE_NONE",
+  "dynamicContextEndpoints": [],
+  "sharedOAuthConnectionID": null
+}
