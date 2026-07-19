@@ -56,7 +56,7 @@
             "resolution": {
               "type": "string",
               "default": "2K",
-              "enum": ["1K", "2K", "4K"],
+              "enum": ["2K", "4K"],
               "description": "Output resolution."
             },
             "aspect_ratio": {
@@ -73,7 +73,7 @@
       "implementationType": "javascript"
     }
   ],
-  "overviewMarkdown": "# Seedream 4.5\n\nImage generation via ByteDance Seedream 4.5 on OpenRouter.\n\n## Parameters\n- **n**: 1–10 images per request\n- **resolution**: `1K` · `2K` · `4K`\n- **aspect_ratio**: `1:1` · `16:9` · `9:16` · `4:3` · `3:2` · and more\n\n## Setup\n1. Get an API key at [openrouter.ai/keys](https://openrouter.ai/keys)\n2. Enter it in plugin settings",
+  "overviewMarkdown": "# Seedream 4.5\n\nImage generation via ByteDance Seedream 4.5 on OpenRouter.\n\n## Parameters\n- **n**: 1–10 images per request\n- **resolution**: `2K` · `4K`\n- **aspect_ratio**: `1:1` · `16:9` · `9:16` · `4:3` · `3:2` · and more\n\n## Setup\n1. Get an API key at [openrouter.ai/keys](https://openrouter.ai/keys)\n2. Enter it in plugin settings",
   "authenticationType": "AUTH_TYPE_NONE",
   "dynamicContextEndpoints": [],
   "sharedOAuthConnectionID": null
