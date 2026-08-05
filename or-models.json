@@ -1,43 +1,10 @@
 {
-  "id": "openrouter-model-discovery",
-  "title": "OpenRouter Model Explorer",
-  "description": "Browse and analyze available models and their endpoints.",
+  "id": "openrouter-image-model-discovery",
+  "title": "OpenRouter Image Model Explorer",
+  "description": "Browse and analyze available image generation models and their parameters.",
   "permissions": [],
   "userSettings": [],
   "pluginFunctions": [
     {
       "id": "LEGACY_DEFAULT_FUNCTION",
-      "code": "async function list_models(params, userSettings, authorizedResources){\n  \n  // --- STEP 1: FETCH DATA (No Auth Required) ---\n  const res = await fetch('https://openrouter.ai/api/v1/images/models', {\n    headers: {\n      'HTTP-Referer': window.location.origin || 'https://typingmind.com',\n      'X-Title': 'TypingMind Plugin'\n    }\n  });\n\n  if (!res.ok) throw new Error(`Failed to fetch models: ${res.statusText}`);\n  const data = await res.json();\n\n  // --- STEP 2: MAP TO DESIGN SYSTEM CARDS ---\n  // We filter out 'null' models (which are placeholders in the API)\n  const models = data.data.filter(m => m.id !== null);\n\n  return {\n    cards: models.map(model => ({\n      type: 'content',\n      title: model.name,\n      subtitle: model.context_length ? `${Math.floor(model.context_length / 1000)}k Tokens` : '',\n      content: model.architecture?.modality?.replace(/^modalities:|\\]/g, '').replace(/,/g, ', ') || 'Standard Text Model',\n      tags: [\n        ...(model.top_provider?.is_preference ? ['Preferred'] : []),\n        ...(model.tags || []),\n        ...(model.description && model.description.length < 60 ? [model.description] : [])\n      ],\n      labels: [\n        { label: '$/M', color: 'blue', value: `$${(model.pricing?.prompt / 1000000)?.toFixed(2)}` },\n        { label: 'Max Context', color: 'purple', value: Math.floor((model.max_tokens || model.context_length)/ 1000) + 'k' }\n      ],\n      links: [\n        { label: 'Details', url: `https://openrouter.ai/${model.slug}` }\n      ]\n    }))\n  };\n}",
-      "name": "List All Models",
-      "openaiSpec": {
-        "name": "list_models",
-        "parameters": {
-          "type": "object",
-          "properties": {}
-        },
-        "description": "Retrieve a list of all available image models with technical details."
-      },
-      "outputType": "cards"
-    },
-    {
-      "id": "LEGACY_ENDPOINT_FUNCTION",
-      "code": "async function get_model_endpoints(params, userSettings, authorizedResources){\n  const modelId = params.modelId;\n\n  if (!modelId) throw new Error('Please specify a Model ID.');\n\n  // --- STEP 1: FETCH ENDPOINTS (No Auth Required) ---\n  const res = await fetch(`https://openrouter.ai/api/v1/images/models/${modelId}/endpoints`, {\n    headers: {\n      'HTTP-Referer': window.location.origin || 'https://typingmind.com',\n      'X-Title': 'TypingMind Plugin'\n    }\n  });\n\n  if (!res.ok) throw new Error(`Could not find endpoints for ${modelId}.`);\n  const data = await res.json();\n\n  // --- STEP 2: RETURN STYLED ENTRIES ---\n  return {\n    cards: data.data.map(ep => ({\n      type: 'list_item',\n      title: ep.type,\n      content: ep.url, \n      tags: [ep.status === 'available' ? 'Online' : 'Offline'],\n      labels: [\n        { label: 'Region', color: 'gray', value: ep.region || 'Global' }\n      ]\n    }))\n  };\n}",
-      "name": "Get Model Endpoints",
-      "openaiSpec": {
-        "name": "get_model_endpoints",
-        "parameters": {
-          "type": "object",
-          "required": ["modelId"],
-          "properties": {
-            "modelId": {
-              "type": "string",
-              "description": "The model slug (e.g., 'bytedance-seed/seedream-4.5')"
-            }
-          }
-        },
-        "description": "Fetch technical endpoint details for a specific model."
-      },
-      "outputType": "cards"
-    }
-  ]
-}
+      "code": "async function list_models(params, userSettings, authorizedResources){\n  \n  // --- STEP 1: FETCH DATA (No Auth Required) ---\n  const res = await fetch('https://openrouter.ai/api/v1/images/models', {\n    headers: {\n      'HTTP-Referer': window.location.origin || 'https://typingmind.com',\n      'X-Title': 'TypingMind Plugin'\n    }\n  });\n\n  if (!res.ok) throw new Error(`Failed to fetch models: ${res.statusText}`);\n  const data = await res.json();\n\n  // --- STEP 2: FILTER & MAP TO DESIGN SYSTEM CARDS ---\n  const models = data.data.filter(m => m.id !== null && m.name);\n\n  return {\n    cards: models.map(model => {\n      // Extract architecture info (image models use input_modalities / output_modalities)\n      const arch = model.architecture || {};\n      const inputMods = arch.input_modalities || [];\n      const outputMods = arch.output_modalities || [];\n\n      // Clean type label from modality array\n      let modelType = 'Image Generation';\n      if (inputMods.length > 0 && outputMods.length > 0) {\n        modelType = `${inputMods.join(' + ')} → ${outputMods.join(' + ')}`;\n      } else if (outputMods.length === 1 && outputMods[0] === 'image') {\n        modelType = 'Text → Image';\n      }\n\n      // Build parameter summary from supported_parameters\n      const params = model.supported_parameters || {};\n      const paramLabels = [];\n\n      // Aspect ratio\n      if (params.aspect_ratio) {\n        const arValues = params.aspect_ratio.values || [];\n        const display = arValues.slice(0, 4).join(', ') + (arValues.length > 4 ? ` (+${arValues.length - 4})` : '');\n        paramLabels.push(display);\n      }\n\n      // Resolution\n      if (params.resolution) {\n        const resValues = params.resolution.values || [];\n        if (resValues.length > 0) {\n          paramLabels.push(`Res: ${resValues.join(', ')}`)
