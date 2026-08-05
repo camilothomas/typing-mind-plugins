@@ -1,7 +1,18 @@
 {
   "id": "openrouter-image-model-discovery",
+  "org": null,
+  "uuid": "img-explorer-001",
+  "emoji": "🖼️",
   "title": "OpenRouter Image Model Explorer",
+  "system": false,
+  "iconURL": null,
+  "syncedAt": null,
+  "createdAt": null,
+  "deletedAt": null,
+  "githubURL": null,
+  "sourceUUID": null,
   "description": "Browse and analyze available image generation models and their parameters.",
+  "oauthConfig": null,
   "permissions": [],
   "userSettings": [],
   "pluginFunctions": [
@@ -14,6 +25,7 @@
         "parameters": {"type": "object", "properties": {}},
         "description": "Retrieve a list of all available image generation models with technical details."
       },
+      "implementationType": "javascript",
       "code": "async function list_models(p){const r=await fetch('https://openrouter.ai/api/v1/images/models',{headers:{'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'}});if(!r.ok)throw new Error(`Failed to fetch models: ${r.statusText}`);const d=await r.json(),m=d.data.filter(x=>x.id!==null&&x.name);return{cards:m.map(o=>{const a=o.architecture||{},im=a.input_modalities||[],om=a.output_modalities||[];let t='Image Generation';im.length&&om.length?t=`${im.join(' + ')} → ${om.join(' + ')}`:om.length===1&&om[0]==='image'?t='Text → Image':0;const s=o.supported_parameters||{},pl=[];if(s.aspect_ratio){const v=s.aspect_ratio.values||[];pl.push(v.slice(0,4).join(', ')+'('+((v.length>4)?'+ '+String(v.length-4):'')+')');}if(s.resolution){const rv=s.resolution.values||[];rv.length>0&&pl.push('Res: '+rv.join(', '));}if(s.n){const mx=s.n.max||1;pl.push(mx>1?'Multi: up to '+mx+' images':'Single image');}s.seed&&pl.push('Fixed seed');if(s.quality){const qv=s.quality.values||[];qv.length>0&&pl.push('Quality: '+qv.join(', '));}if(s.background){const bv=s.background.values||[];bv.length>0&&pl.push('Bkg: '+bv.join(', '));}if(s.output_format){const fv=s.output_format.values||[];fv.length>0&&pl.push('Format: '+fv.join(', '));}s.input_references&&pl.push('Reference images');const tg=[],desc=(o.description||'').slice(0,150)+((o.description||'').length>150?'...':''),mid=o.id||'',idT=mid?`\n[id: ${mid}]`:'';o.top_provider?.is_preference&&tg.push('Recommended');o.tags?.length&&tg.push(...o.tags);!tg.length&&o.description&&o.description.length<50&&tg.push(o.description);return{type:'content',title:o.name,subtitle:t,content:desc+idT,tags:tg,labels:[{label:'Capabilities',color:'blue',value:pl.slice(0,3).join(' · ')||'Basic'}],links:[{label:'Details',url:'https://openrouter.ai/'+(o.slug||mid.replace('/','-'))}]};});};}"
     },
     {
@@ -34,6 +46,7 @@
         },
         "description": "Fetch technical endpoint details for a specific model."
       },
+      "implementationType": "javascript",
       "code": "async function get_model_endpoints(params,userSettings,authorizedResources){const modelId=params.modelId;if(!modelId)throw new Error('Please specify a Model ID.');const res=await fetch(`https://openrouter.ai/api/v1/images/models/${modelId}/endpoints`,{headers:{'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'}});if(!res.ok)throw new Error(`Could not find endpoints for ${modelId}.`);const data=await res.json();return{cards:data.data.map(ep=>({type:'list_item',title:ep.type,content:ep.url,tags:[ep.status==='available'?'Online':'Offline'],labels:[{label:'Region',color:'gray',value:ep.region||'Global'}]}))};}"
     }
   ]
