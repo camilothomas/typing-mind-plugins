@@ -19,35 +19,40 @@
     {
       "id": "LEGACY_DEFAULT_FUNCTION",
       "name": "List All Image Models",
-      "outputType": "cards",
+      "outputType": "render_markdown",
       "openaiSpec": {
         "name": "list_models",
-        "parameters": {"type": "object", "properties": {}},
-        "description": "Retrieve a list of all available image generation models with technical details."
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        },
+        "description": "Retrieve a list of all available image generation models with technical details, formatted as a markdown table plus descriptions."
       },
       "implementationType": "javascript",
-      "code": "async function list_models(p){const r=await fetch('https://openrouter.ai/api/v1/images/models',{headers:{'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'}});if(!r.ok)throw new Error(`Failed to fetch models: ${r.statusText}`);const d=await r.json(),m=d.data.filter(x=>x.id!==null&&x.name);return{cards:m.map(o=>{const a=o.architecture||{},im=a.input_modalities||[],om=a.output_modalities||[];let t='Image Generation';im.length&&om.length?t=`${im.join(' + ')} → ${om.join(' + ')}`:om.length===1&&om[0]==='image'?t='Text → Image':0;const s=o.supported_parameters||{},pl=[];if(s.aspect_ratio){const v=s.aspect_ratio.values||[];pl.push(v.slice(0,4).join(', ')+'('+((v.length>4)?'+ '+String(v.length-4):'')+')');}if(s.resolution){const rv=s.resolution.values||[];rv.length>0&&pl.push('Res: '+rv.join(', '));}if(s.n){const mx=s.n.max||1;pl.push(mx>1?'Multi: up to '+mx+' images':'Single image');}s.seed&&pl.push('Fixed seed');if(s.quality){const qv=s.quality.values||[];qv.length>0&&pl.push('Quality: '+qv.join(', '));}if(s.background){const bv=s.background.values||[];bv.length>0&&pl.push('Bkg: '+bv.join(', '));}if(s.output_format){const fv=s.output_format.values||[];fv.length>0&&pl.push('Format: '+fv.join(', '));}s.input_references&&pl.push('Reference images');const tg=[],desc=(o.description||'').slice(0,150)+((o.description||'').length>150?'...':''),mid=o.id||'',idT=mid?`\n[id: ${mid}]`:'';o.top_provider?.is_preference&&tg.push('Recommended');o.tags?.length&&tg.push(...o.tags);!tg.length&&o.description&&o.description.length<50&&tg.push(o.description);return{type:'content',title:o.name,subtitle:t,content:desc+idT,tags:tg,labels:[{label:'Capabilities',color:'blue',value:pl.slice(0,3).join(' · ')||'Basic'}],links:[{label:'Details',url:'https://openrouter.ai/'+(o.slug||mid.replace('/','-'))}]};})};}"
+      "code": "function esc(v){return String(v==null?'':v).replace(/\\|/g,'/');}async function list_models(p){const r=await fetch('https://openrouter.ai/api/v1/images/models',{headers:{'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'}});if(!r.ok)throw new Error(`Failed to fetch models: ${r.statusText}`);const d=await r.json();const models=(d.data||[]).filter(x=>x&&x.id&&x.name);if(!models.length)return 'No image models found.';let md=`# Available Image Generation Models (${models.length})\\n\\n`;md+='| Model | ID | Modalities | Aspect Ratios | Max Images | Notes |\\n';md+='|---|---|---|---|---|---|\\n';for(const o of models){const a=o.architecture||{},im=a.input_modalities||[],om=a.output_modalities||[];const modalities=(im.length&&om.length)?`${im.join('+')} → ${om.join('+')}`:(om[0]==='image'?'text → image':'—');const s=o.supported_parameters||{};const ar=(s.aspect_ratio&&s.aspect_ratio.values)||[];const arText=ar.length?(ar.slice(0,4).join(', ')+(ar.length>4?` +${ar.length-4}`:'')):'—';const maxN=(s.n&&s.n.max)||1;const notes=[];if(s.resolution&&s.resolution.values&&s.resolution.values.length)notes.push('res: '+s.resolution.values.join('/'));if(s.quality&&s.quality.values&&s.quality.values.length)notes.push('quality: '+s.quality.values.join('/'));if(s.background&&s.background.values&&s.background.values.length)notes.push('bg: '+s.background.values.join('/'));if(s.output_format&&s.output_format.values&&s.output_format.values.length)notes.push('fmt: '+s.output_format.values.join('/'));if(s.seed)notes.push('fixed seed');if(s.input_references)notes.push('ref images');md+=`| **${esc(o.name)}** | \\`${esc(o.id)}\\` | ${esc(modalities)} | ${esc(arText)} | ${maxN} | ${esc(notes.join(', ')||'—')} |\\n`;}md+='\\n---\\n\\n## Model Descriptions\\n\\n';for(const o of models){if(o.description)md+=`**${o.name}** (\\`${o.id}\\`)\\n${o.description}\\n\\n`;}md+='\\n_Use the model ID (e.g. `provider/model-name`) with **Get Model Endpoints** to see provider-level pricing and availability._';return md;}"
     },
     {
       "id": "LEGACY_ENDPOINT_FUNCTION",
       "name": "Get Model Endpoints",
-      "outputType": "cards",
+      "outputType": "render_markdown",
       "openaiSpec": {
         "name": "get_model_endpoints",
         "parameters": {
           "type": "object",
-          "required": ["modelId"],
+          "required": [
+            "modelId"
+          ],
           "properties": {
             "modelId": {
               "type": "string",
-              "description": "The model slug/id (e.g., bytedance-seed/seedream-4.5). Find it on model cards as [id: ...]."
+              "description": "The model slug/id (e.g., microsoft/mai-image-2.5-pro). Find it on the model list in backticks next to each model name."
             }
           }
         },
-        "description": "Fetch technical endpoint details for a specific model."
+        "description": "Fetch technical endpoint and pricing details for a specific model, formatted as markdown."
       },
       "implementationType": "javascript",
-      "code": "async function get_model_endpoints(params,userSettings,authorizedResources){const modelId=params.modelId;if(!modelId)throw new Error('Please specify a Model ID.');const res=await fetch(`https://openrouter.ai/api/v1/images/models/${modelId}/endpoints`,{headers:{'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'}});if(!res.ok)throw new Error(`Could not find endpoints for ${modelId}.`);const data=await res.json();return{cards:data.data.map(ep=>({type:'list_item',title:ep.type,content:ep.url,tags:[ep.status==='available'?'Online':'Offline'],labels:[{label:'Region',color:'gray',value:ep.region||'Global'}]}))};}"
+      "code": "async function get_model_endpoints(params){const modelId=params&&params.modelId;if(!modelId)throw new Error('Please specify a Model ID.');const res=await fetch(`https://openrouter.ai/api/v1/images/models/${modelId}/endpoints`,{headers:{'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'}});if(!res.ok)throw new Error(`Could not find endpoints for \"${modelId}\". Use the exact ID shown in the model list (e.g. provider/model-name).`);const data=await res.json();const endpoints=data.endpoints||[];if(!endpoints.length)return `No endpoints found for \\`${modelId}\\`.`;let md=`# Endpoints for \\`${modelId}\\`\\n\\n`;for(const ep of endpoints){md+=`## ${ep.provider_name||ep.provider_slug||'Unknown provider'}\\n\\n`;if(ep.pricing&&ep.pricing.length){md+='| Billable | Unit | Cost (USD) |\\n|---|---|---|\\n';for(const pr of ep.pricing){md+=`| ${pr.billable} | ${pr.unit} | $${pr.cost_usd} |\\n`;}md+='\\n';}md+=`- Streaming: ${ep.supports_streaming?'Yes':'No'}\\n`;if(ep.supported_parameters){const keys=Object.keys(ep.supported_parameters);if(keys.length)md+=`- Supported parameters: ${keys.join(', ')}\\n`;}if(ep.allowed_passthrough_parameters&&ep.allowed_passthrough_parameters.length){md+=`- Passthrough parameters: ${ep.allowed_passthrough_parameters.join(', ')}\\n`;}md+='\\n';}return md;}"
     }
   ]
 }
