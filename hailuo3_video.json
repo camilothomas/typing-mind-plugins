@@ -1,0 +1,105 @@
+{
+  "id": "minimax-hailuo3-video",
+  "org": null,
+  "uuid": "7f241b56-28b4-4c4f-acad-fb651a9a6714",
+  "emoji": "🎬",
+  "title": "Generate Video (MiniMax Hailuo 3)",
+  "system": false,
+  "iconURL": null,
+  "syncedAt": null,
+  "createdAt": null,
+  "deletedAt": null,
+  "githubURL": null,
+  "sourceUUID": null,
+  "description": "Generate videos with MiniMax Hailuo 3 via OpenRouter. Submit a text-to-video or image-to-video job, then poll for status and get the finished video.",
+  "oauthConfig": null,
+  "permissions": ["read_user_message"],
+  "userSettings": [
+    {
+      "name": "openrouterApiKey",
+      "type": "password",
+      "label": "OpenRouter API Key",
+      "required": true,
+      "description": "Your OpenRouter API key. Get one at openrouter.ai/keys.",
+      "placeholder": "sk-or-v1-..."
+    }
+  ],
+  "pluginFunctions": [
+    {
+      "id": "LEGACY_DEFAULT_FUNCTION",
+      "name": "generate_video_hailuo3",
+      "outputType": "render_markdown",
+      "openaiSpec": {
+        "name": "generate_video_hailuo3",
+        "parameters": {
+          "type": "object",
+          "required": ["prompt"],
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "description": "A detailed text description of the video to generate."
+            },
+            "duration": {
+              "type": "integer",
+              "default": 6,
+              "minimum": 5,
+              "maximum": 15,
+              "description": "Video length in seconds (5-15). Billed at $0.13/second."
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "default": "16:9",
+              "enum": ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+              "description": "Aspect ratio of the output video."
+            },
+            "image_url": {
+              "type": "string",
+              "description": "URL of an image to use as the first frame (enables image-to-video). If omitted, an image attached to the user's message is used automatically if present."
+            },
+            "last_frame_image_url": {
+              "type": "string",
+              "description": "URL of an image to use as the last frame. Optional, combine with image_url to guide the video between two frames. Adds $0.04 per reference image."
+            },
+            "generate_audio": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether to generate synchronized audio for the video."
+            },
+            "aigc_watermark": {
+              "type": "boolean",
+              "description": "Add an AI-generated-content watermark to the output video."
+            }
+          }
+        },
+        "description": "Submit an async video generation job to MiniMax Hailuo 3 (minimax/hailuo-3) via OpenRouter. Supports text-to-video and image-to-video (first/last frame). Returns a job ID — pass it to check_video_job to poll for completion and retrieve the finished video."
+      },
+      "implementationType": "javascript",
+      "code": "async function generate_video_hailuo3(params,userSettings,authorizedResources){const apiKey=userSettings.openrouterApiKey;if(!apiKey)throw new Error('OpenRouter API key required. Add it in the plugin settings.');const prompt=params.prompt;if(!prompt)throw new Error('Prompt is required.');const duration=parseInt(params.duration)||6;if(duration<5||duration>15)throw new Error('duration must be between 5 and 15 seconds for minimax/hailuo-3.');const aspectRatio=params.aspect_ratio||'16:9';const allowedAR=['21:9','16:9','4:3','1:1','3:4','9:16'];if(!allowedAR.includes(aspectRatio))throw new Error(`aspect_ratio must be one of: ${allowedAR.join(', ')}`);const generateAudio=params.generate_audio!==false;let firstFrameUrl=params.image_url||null;let lastFrameUrl=params.last_frame_image_url||null;if(!firstFrameUrl){const atts=(authorizedResources?.userMessage?.attachments||[]).filter(a=>a.type?.startsWith('image/'));if(atts.length)firstFrameUrl=atts[0].url;}const toDataURL=async(url)=>{if(!url||url.startsWith('data:'))return url;let res;try{res=await fetch(url);}catch(e){throw new Error(`Could not download image: ${e.message}`);}if(!res.ok)throw new Error(`Could not download image (HTTP ${res.status}).`);const blob=await res.blob();return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onloadend=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Failed to read image.'));reader.readAsDataURL(blob);});};const frameImages=[];if(firstFrameUrl)frameImages.push({type:'image_url',image_url:{url:await toDataURL(firstFrameUrl)},frame_type:'first_frame'});if(lastFrameUrl)frameImages.push({type:'image_url',image_url:{url:await toDataURL(lastFrameUrl)},frame_type:'last_frame'});const body={model:'minimax/hailuo-3',prompt,duration,resolution:'2K',aspect_ratio:aspectRatio,generate_audio:generateAudio};if(frameImages.length)body.frame_images=frameImages;if(typeof params.aigc_watermark==='boolean')body.aigc_watermark=params.aigc_watermark;const res=await fetch('https://openrouter.ai/api/v1/videos',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`,'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'},body:JSON.stringify(body)});if(res.status===401)throw new Error('Invalid OpenRouter API key.');if(!res.ok){const text=await res.text();let msg=`Video request failed (${res.status})`;try{const e=JSON.parse(text);if(e.error)msg+=`: ${e.error.message||e.error}`;}catch(_){msg+=`: ${text}`;}throw new Error(msg);}const data=await res.json();return `# 🎬 Video job submitted\\n\\n- **Job ID:** \\`${data.id}\\`\\n- **Status:** ${data.status||'pending'}\\n- **Model:** minimax/hailuo-3\\n- **Duration:** ${duration}s · **Aspect ratio:** ${aspectRatio}\\n\\nUse **check_video_job** with this Job ID in about 30-60 seconds to check progress and retrieve the finished video.`;}"
+    },
+    {
+      "id": "LEGACY_CHECK_FUNCTION",
+      "name": "check_video_job",
+      "outputType": "render_html",
+      "openaiSpec": {
+        "name": "check_video_job",
+        "parameters": {
+          "type": "object",
+          "required": ["job_id"],
+          "properties": {
+            "job_id": {
+              "type": "string",
+              "description": "The job ID returned by generate_video_hailuo3."
+            }
+          }
+        },
+        "description": "Poll the status of a previously submitted OpenRouter video generation job (e.g. from generate_video_hailuo3). Call this repeatedly, roughly every 30-60 seconds, until status is 'completed'. Returns a playable video when ready."
+      },
+      "implementationType": "javascript",
+      "code": "async function check_video_job(params,userSettings){const apiKey=userSettings.openrouterApiKey;if(!apiKey)throw new Error('OpenRouter API key required. Add it in the plugin settings.');const jobId=params.job_id;if(!jobId)throw new Error('job_id is required.');const headers={'Authorization':`Bearer ${apiKey}`,'HTTP-Referer':window.location.origin||'https://typingmind.com','X-Title':'TypingMind Plugin'};const res=await fetch(`https://openrouter.ai/api/v1/videos/${jobId}`,{headers});if(res.status===401)throw new Error('Invalid OpenRouter API key.');if(res.status===404)throw new Error(`No video job found with ID \"${jobId}\".`);if(!res.ok){const text=await res.text();throw new Error(`Status check failed (${res.status}): ${text}`);}const data=await res.json();const status=data.status;if(status==='failed')return `<div><h3>❌ Video job failed</h3><p><b>Job ID:</b> ${jobId}</p><p>${data.error||'Unknown error.'}</p></div>`;if(status==='cancelled'||status==='expired')return `<div><h3>⚠️ Video job ${status}</h3><p><b>Job ID:</b> ${jobId}</p></div>`;if(status!=='completed')return `<div><h3>⏳ Video job: ${status}</h3><p><b>Job ID:</b> ${jobId}</p><p>Not ready yet — check again in 30-60 seconds.</p></div>`;const contentUrl=`https://openrouter.ai/api/v1/videos/${jobId}/content?index=0`;let videoRes;try{videoRes=await fetch(contentUrl,{headers});}catch(e){throw new Error(`Could not download video content: ${e.message}`);}if(!videoRes.ok)throw new Error(`Video is marked completed but content download failed (HTTP ${videoRes.status}). The download URL requires your OpenRouter API key, not just a browser request.`);const buf=await videoRes.arrayBuffer();const cost=(data.usage&&data.usage.cost!=null)?`$${data.usage.cost}`:'n/a';const sizeMB=(buf.byteLength/1024/1024).toFixed(1);const MAX_INLINE_BYTES=8*1024*1024;if(buf.byteLength>MAX_INLINE_BYTES){return `<div><h3>✅ Video ready (${sizeMB}MB)</h3><p>Too large to embed inline in the chat. Download it with your OpenRouter API key:</p><pre>curl \"${contentUrl}\" -H \"Authorization: Bearer YOUR_OPENROUTER_API_KEY\" -o video.mp4</pre><p>Job ID: ${jobId} · Cost: ${cost}</p></div>`;}let binary='';const bytes=new Uint8Array(buf);const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk){binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));}const dataUrl=`data:video/mp4;base64,${btoa(binary)}`;return `<div><h3>✅ Video ready</h3><video controls style=\"max-width:100%;border-radius:8px\" src=\"${dataUrl}\"></video><p><a href=\"${dataUrl}\" download=\"hailuo3-${jobId}.mp4\">Download video</a> · ${sizeMB}MB · Cost: ${cost}</p></div>`;}"
+    }
+  ],
+  "overviewMarkdown": "# Generate Video (MiniMax Hailuo 3)\n\nA two-step TypingMind plugin for async video generation via [OpenRouter](https://openrouter.ai)'s video API, using `minimax/hailuo-3`.\n\n## How it works\n1. **`generate_video_hailuo3`** submits the job (text-to-video, or image-to-video if you attach/pass an image) and returns a Job ID.\n2. **`check_video_job`** polls that Job ID. Call it again every 30-60 seconds until the video is ready.\n\n## Why not just a video link?\nOpenRouter's video download URLs (`unsigned_urls` / `/content`) still require your API key to authenticate — a plain browser `<video>`/`<a>` tag can't attach that header, so `check_video_job` downloads the file itself (with your key) and embeds it as a self-contained `data:` URI. This means:\n- Each `check_video_job` call re-downloads the file once the job is completed (there's no caching between calls).\n- Videos under ~8MB embed and play inline with a working download link.\n- Larger videos (long duration / high bitrate) fall back to a ready-to-run `curl` command using the authenticated content URL, so you can still grab it exactly like your old Postman flow.\n\n## Parameters\n- **duration**: 5-15 seconds ($0.13/second)\n- **aspect_ratio**: `21:9` · `16:9` · `4:3` · `1:1` · `3:4` · `9:16`\n- **image_url** / **last_frame_image_url**: optional first/last frame guidance ($0.04 per reference image)\n- **generate_audio**: synchronized audio on by default\n\n## Setup\n1. Get an API key at [openrouter.ai/keys](https://openrouter.ai/keys)\n2. Enter it in the plugin settings\n\n## Example usage\n```\nGenerate a 10 second video of a golden retriever running on a beach, 16:9\n```\nThe AI will submit the job, then periodically check status until the video is done.\n",
+  "authenticationType": "AUTH_TYPE_NONE",
+  "dynamicContextEndpoints": [],
+  "sharedOAuthConnectionID": null
+}
